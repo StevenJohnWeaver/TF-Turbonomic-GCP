@@ -2,7 +2,7 @@ terraform {
   required_providers {
     turbonomic = {
       source  = "IBM/turbonomic"
-      version = "1.2.0"
+      version = "1.9.0"
     }
     google = {
       source  = "hashicorp/google"
