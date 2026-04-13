@@ -21,7 +21,6 @@ provider "turbonomic" {
 provider "google" {
   project = var.gcp_project
   region  = var.gcp_region
-  zone    = var.gcp_zone
 }
 
 variable "turbo_username" {
@@ -59,16 +58,23 @@ variable "gcp_zone" {
   default     = "us-central1-a"
 }
 
+variable "instance_name" {
+  description = "The name of the GCE instance (must match the entity name in Turbonomic)"
+  type        = string
+  default     = "exampleVirtualMachine"
+}
+
 # Turbonomic queries the GCP Compute instance by name and returns the
 # current machine type alongside its recommended (right-sized) machine type.
 data "turbonomic_google_compute_instance" "example" {
-  entity_name          = "exampleVirtualMachine"
+  entity_name          = var.instance_name
   default_machine_type = "e2-micro"
 }
 
 resource "google_compute_instance" "terraform-demo-gce" {
-  name         = "example-virtual-machine"
+  name         = var.instance_name
   machine_type = data.turbonomic_google_compute_instance.example.new_machine_type
+  zone         = var.gcp_zone
 
   boot_disk {
     initialize_params {
@@ -83,7 +89,7 @@ resource "google_compute_instance" "terraform-demo-gce" {
 
   labels = merge(
     {
-      name = "examplevirtualmachine"
+      name = lower(var.instance_name)
     },
     provider::turbonomic::get_tag()
   )
