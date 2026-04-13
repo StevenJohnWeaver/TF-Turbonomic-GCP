@@ -68,7 +68,7 @@ variable "instance_name" {
 # current machine type alongside its recommended (right-sized) machine type.
 data "turbonomic_google_compute_instance" "example" {
   entity_name          = var.instance_name
-  default_machine_type = "e2-micro"
+  default_machine_type = "e2-medium"
 }
 
 resource "google_compute_instance" "terraform-demo-gce" {
