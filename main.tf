@@ -49,13 +49,13 @@ variable "gcp_project" {
 variable "gcp_region" {
   description = "The GCP region to deploy resources in"
   type        = string
-  default     = "us-central1"
+  default     = "us-east4"
 }
 
 variable "gcp_zone" {
   description = "The GCP zone to deploy resources in"
   type        = string
-  default     = "us-central1-b"
+  default     = "us-east4-b"
 }
 
 variable "instance_name" {
@@ -68,7 +68,7 @@ variable "instance_name" {
 # current machine type alongside its recommended (right-sized) machine type.
 data "turbonomic_google_compute_instance" "example" {
   entity_name          = var.instance_name
-  default_machine_type = "e2-medium"
+  default_machine_type = "e2-standard-2"
 }
 
 resource "google_compute_instance" "terraform-demo-gce" {
