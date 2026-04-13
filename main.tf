@@ -59,9 +59,9 @@ variable "gcp_zone" {
 }
 
 variable "instance_name" {
-  description = "The name of the GCE instance (must match the entity name in Turbonomic)"
+  description = "The name of the GCE instance (must match the entity name in Turbonomic). Must be lowercase letters, numbers, and hyphens only."
   type        = string
-  default     = "exampleVirtualMachine"
+  default     = "example-virtual-machine"
 }
 
 # Turbonomic queries the GCP Compute instance by name and returns the
