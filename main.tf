@@ -98,6 +98,6 @@ resource "google_compute_instance" "terraform-demo-gce" {
 check "turbonomic_consistent_with_recommendation_check" {
   assert {
     condition     = google_compute_instance.terraform-demo-gce.machine_type == coalesce(data.turbonomic_google_compute_instance.example.new_machine_type, google_compute_instance.terraform-demo-gce.machine_type)
-    error_message = "Instance machine type must match Turbonomic's recommendation. Current: ${data.turbonomic_google_compute_instance.example.current_machine_type}, Recommended: ${coalesce(data.turbonomic_google_compute_instance.example.new_machine_type, google_compute_instance.terraform-demo-gce.machine_type)}"
+    error_message = "Instance machine type must match Turbonomic's recommendation. Current: ${coalesce(data.turbonomic_google_compute_instance.example.current_machine_type, "unknown")}, Recommended: ${coalesce(data.turbonomic_google_compute_instance.example.new_machine_type, google_compute_instance.terraform-demo-gce.machine_type)}"
   }
 }
