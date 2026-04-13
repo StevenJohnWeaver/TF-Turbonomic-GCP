@@ -1,0 +1,7 @@
+turbo_hostname = "your-turbonomic-hostname.example.com"
+turbo_username = "your-turbonomic-username"
+turbo_password = "your-turbonomic-password"
+
+gcp_project = "your-gcp-project-id"
+gcp_region  = "us-central1"
+gcp_zone    = "us-central1-a"
