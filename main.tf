@@ -55,7 +55,7 @@ variable "gcp_region" {
 variable "gcp_zone" {
   description = "The GCP zone to deploy resources in"
   type        = string
-  default     = "us-central1-a"
+  default     = "us-central1-b"
 }
 
 variable "instance_name" {
