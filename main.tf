@@ -102,6 +102,7 @@ resource "google_compute_instance" "terraform-demo-gce" {
   boot_disk {
     initialize_params {
       image = "debian-cloud/debian-12"
+      size  = 20
     }
   }
 
