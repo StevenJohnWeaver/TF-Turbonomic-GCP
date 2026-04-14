@@ -71,24 +71,27 @@ data "turbonomic_google_compute_instance" "example" {
   default_machine_type = "e2-standard-2"
 }
 
-# Turbonomic queries the GCP Compute disk by name and returns the
-# recommended size and type. Starting at 10 GB gives Turbo a clear
-# signal to recommend a scale-up.
+# Turbonomic queries the boot disk by name and returns the recommended
+# size and type. At 10 GB pd-standard, Turbo flags it quickly for
+# IOPS congestion — giving us a reliable demo action.
 data "turbonomic_google_compute_disk" "example" {
-  entity_name  = "${var.instance_name}-data"
+  entity_name  = var.instance_name
   default_type = "pd-standard"
   default_size = 10
 }
 
-resource "google_compute_disk" "terraform-demo-disk" {
-  name = "${var.instance_name}-data"
-  type = coalesce(data.turbonomic_google_compute_disk.example.new_type, "pd-standard")
-  size = coalesce(data.turbonomic_google_compute_disk.example.new_size, 10)
-  zone = var.gcp_zone
+# Boot disk managed as a standalone resource so Turbonomic's size
+# recommendation can be applied in-place without recreating the instance.
+resource "google_compute_disk" "terraform-demo-boot-disk" {
+  name  = var.instance_name
+  image = "debian-cloud/debian-12"
+  type  = coalesce(data.turbonomic_google_compute_disk.example.new_type, "pd-standard")
+  size  = coalesce(data.turbonomic_google_compute_disk.example.new_size, 10)
+  zone  = var.gcp_zone
 
   labels = merge(
     {
-      name = "${var.instance_name}-data"
+      name = lower(var.instance_name)
     },
     provider::turbonomic::get_tag()
   )
@@ -100,45 +103,8 @@ resource "google_compute_instance" "terraform-demo-gce" {
   zone         = var.gcp_zone
 
   boot_disk {
-    initialize_params {
-      image = "debian-cloud/debian-12"
-      size  = 20
-      type  = "pd-balanced"
-    }
+    source = google_compute_disk.terraform-demo-boot-disk.self_link
   }
-
-  attached_disk {
-    source      = google_compute_disk.terraform-demo-disk.self_link
-    device_name = "data-disk"
-  }
-
-  metadata_startup_script = <<-EOF
-    #!/bin/bash
-    # Wait for the data disk to be available
-    DEVICE="/dev/disk/by-id/google-data-disk"
-    until [ -e "$DEVICE" ]; do sleep 2; done
-
-    # Format and mount (only if not already formatted)
-    if ! blkid "$DEVICE" | grep -q ext4; then
-      mkfs.ext4 -F "$DEVICE"
-    fi
-    mkdir -p /mnt/data
-    mount "$DEVICE" /mnt/data
-
-    # Install fio and run continuous random I/O to signal Turbo
-    apt-get install -y fio
-    fio --name=turbo-demo-load \
-        --filename=/mnt/data/testfile \
-        --rw=randrw \
-        --bs=4k \
-        --size=8G \
-        --numjobs=4 \
-        --iodepth=32 \
-        --runtime=0 \
-        --time_based \
-        --group_reporting \
-        --output=/var/log/fio.log &
-  EOF
 
   network_interface {
     network = "default"
@@ -162,7 +128,7 @@ check "turbonomic_vm_recommendation_check" {
 
 check "turbonomic_disk_recommendation_check" {
   assert {
-    condition     = google_compute_disk.terraform-demo-disk.size == coalesce(data.turbonomic_google_compute_disk.example.new_size, google_compute_disk.terraform-demo-disk.size)
-    error_message = "Disk size must match Turbonomic's recommendation. Current: ${coalesce(data.turbonomic_google_compute_disk.example.current_size, google_compute_disk.terraform-demo-disk.size)} GB, Recommended: ${coalesce(data.turbonomic_google_compute_disk.example.new_size, google_compute_disk.terraform-demo-disk.size)} GB"
+    condition     = google_compute_disk.terraform-demo-boot-disk.size == coalesce(data.turbonomic_google_compute_disk.example.new_size, google_compute_disk.terraform-demo-boot-disk.size)
+    error_message = "Disk size must match Turbonomic's recommendation. Current: ${coalesce(data.turbonomic_google_compute_disk.example.current_size, google_compute_disk.terraform-demo-boot-disk.size)} GB, Recommended: ${coalesce(data.turbonomic_google_compute_disk.example.new_size, google_compute_disk.terraform-demo-boot-disk.size)} GB"
   }
 }
