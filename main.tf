@@ -71,6 +71,29 @@ data "turbonomic_google_compute_instance" "example" {
   default_machine_type = "e2-standard-2"
 }
 
+# Turbonomic queries the GCP Compute disk by name and returns the
+# recommended size and type. Starting at 10 GB gives Turbo a clear
+# signal to recommend a scale-up.
+data "turbonomic_google_compute_disk" "example" {
+  entity_name  = "${var.instance_name}-data"
+  default_type = "pd-standard"
+  default_size = 10
+}
+
+resource "google_compute_disk" "terraform-demo-disk" {
+  name = "${var.instance_name}-data"
+  type = coalesce(data.turbonomic_google_compute_disk.example.new_type, "pd-standard")
+  size = coalesce(data.turbonomic_google_compute_disk.example.new_size, 10)
+  zone = var.gcp_zone
+
+  labels = merge(
+    {
+      name = "${var.instance_name}-data"
+    },
+    provider::turbonomic::get_tag()
+  )
+}
+
 resource "google_compute_instance" "terraform-demo-gce" {
   name         = var.instance_name
   machine_type = data.turbonomic_google_compute_instance.example.new_machine_type
@@ -80,6 +103,10 @@ resource "google_compute_instance" "terraform-demo-gce" {
     initialize_params {
       image = "debian-cloud/debian-12"
     }
+  }
+
+  attached_disk {
+    source = google_compute_disk.terraform-demo-disk.self_link
   }
 
   network_interface {
@@ -95,9 +122,16 @@ resource "google_compute_instance" "terraform-demo-gce" {
   )
 }
 
-check "turbonomic_consistent_with_recommendation_check" {
+check "turbonomic_vm_recommendation_check" {
   assert {
     condition     = google_compute_instance.terraform-demo-gce.machine_type == coalesce(data.turbonomic_google_compute_instance.example.new_machine_type, google_compute_instance.terraform-demo-gce.machine_type)
-    error_message = "Instance machine type must match Turbonomic's recommendation. Current: ${coalesce(data.turbonomic_google_compute_instance.example.current_machine_type, "unknown")}, Recommended: ${coalesce(data.turbonomic_google_compute_instance.example.new_machine_type, google_compute_instance.terraform-demo-gce.machine_type)}"
+    error_message = "VM machine type must match Turbonomic's recommendation. Current: ${coalesce(data.turbonomic_google_compute_instance.example.current_machine_type, "unknown")}, Recommended: ${coalesce(data.turbonomic_google_compute_instance.example.new_machine_type, google_compute_instance.terraform-demo-gce.machine_type)}"
+  }
+}
+
+check "turbonomic_disk_recommendation_check" {
+  assert {
+    condition     = google_compute_disk.terraform-demo-disk.size == coalesce(data.turbonomic_google_compute_disk.example.new_size, google_compute_disk.terraform-demo-disk.size)
+    error_message = "Disk size must match Turbonomic's recommendation. Current: ${coalesce(data.turbonomic_google_compute_disk.example.current_size, google_compute_disk.terraform-demo-disk.size)} GB, Recommended: ${coalesce(data.turbonomic_google_compute_disk.example.new_size, google_compute_disk.terraform-demo-disk.size)} GB"
   }
 }
