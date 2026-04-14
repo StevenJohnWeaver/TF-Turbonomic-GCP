@@ -106,8 +106,37 @@ resource "google_compute_instance" "terraform-demo-gce" {
   }
 
   attached_disk {
-    source = google_compute_disk.terraform-demo-disk.self_link
+    source      = google_compute_disk.terraform-demo-disk.self_link
+    device_name = "data-disk"
   }
+
+  metadata_startup_script = <<-EOF
+    #!/bin/bash
+    # Wait for the data disk to be available
+    DEVICE="/dev/disk/by-id/google-data-disk"
+    until [ -e "$DEVICE" ]; do sleep 2; done
+
+    # Format and mount (only if not already formatted)
+    if ! blkid "$DEVICE" | grep -q ext4; then
+      mkfs.ext4 -F "$DEVICE"
+    fi
+    mkdir -p /mnt/data
+    mount "$DEVICE" /mnt/data
+
+    # Install fio and run continuous random I/O to signal Turbo
+    apt-get install -y fio
+    fio --name=turbo-demo-load \
+        --filename=/mnt/data/testfile \
+        --rw=randrw \
+        --bs=4k \
+        --size=8G \
+        --numjobs=4 \
+        --iodepth=32 \
+        --runtime=0 \
+        --time_based \
+        --group_reporting \
+        --output=/var/log/fio.log &
+  EOF
 
   network_interface {
     network = "default"
